@@ -1,0 +1,88 @@
+---
+title: "Stat 4620 Final Project"
+author: "Austin Usher"
+date: "2024-11-20"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Load Data
+
+```{r}
+path = "C:/Users/austi/OneDrive/Stat 4620/Final Project/train.csv"
+
+data = read.csv(path)
+
+head(data)
+
+```
+
+
+Does EDA suggest modeling approached to try
+
+```{r,warning=FALSE}
+
+# Correlation heatmap for numeric variables
+library(ggcorrplot)
+
+numeric_data <- data[sapply(data, is.numeric)]
+cor_matrix <- cor(numeric_data, use = "complete.obs")
+
+cor_matrix = round(cor_matrix,1)
+
+# Plot heatmap with larger size and improved readability
+ggcorrplot(cor_matrix, 
+           lab = TRUE,        
+           lab_size = 2,      
+           tl.cex = 5,       
+           title = "Correlation Heatmap", 
+           ggtheme = ggplot2::theme_minimal()) +
+  theme(
+    plot.title = element_text(size = 10, face = "bold"),
+    axis.text = element_text(size = 4)                  
+  )
+
+# Extract correlations of 'Metrics.Sales' with all other variables
+sales_correlations <- cor_matrix["Metrics.Sales", ]
+
+# Print the correlation values
+print(sales_correlations)
+
+
+
+```
+
+Summary:
+
+Because many variables have very small correlation with the Sales variable both Lasso and Ridge would be useful to diminish the impact of non important variables. Lasso would work best to selected the needed features and to simplify the model as some coefficients are set to 0. Ridge does not to feature selection so would not be as ideal. Also there does not seem to be large multicollinearity between variables so PLS would not be suitable.
+
+Kind of variables in data set
+
+```{r}
+# Check the structure of the data
+str(data)
+
+# Numeric, Factor, and Character Variable Count Without %>%
+numeric_vars <- sum(sapply(data, is.numeric))
+factor_vars <- sum(sapply(data, is.factor))
+character_vars <- sum(sapply(data, is.character))
+
+# Create a summary table for variable types
+var_summary <- data.frame(
+  numeric_vars = numeric_vars,
+  factor_vars = factor_vars,
+  character_vars = character_vars
+)
+
+# Print the summary table
+print(var_summary)
+
+# Summary for each variable in the dataset
+summary(data)
+
+
+```
+
+
+Sales shows a right-skewed distribution indicating few games achieve very high sales while the majority have fewer sales. Review scores also display a broad variation which could be useful in predicting sales. Features such as number of players, multiplatform, sequels, and online capabilities could also be helpful in predicting sales. Some game play styles have very large outliers which could affect prediction.
