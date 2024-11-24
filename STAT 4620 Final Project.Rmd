@@ -64,10 +64,35 @@ summary(training_subset)
 ```
 The above suggests that there are no remanining null values. It also tells us that the data does not have any improbable outliers.
 
+## Assessing collinearity
+```{r}
+corrmatrixtrain <- train %>%
+  select(where(is.numeric)) %>%
+  cor(use = "pairwise.complete.obs")
+corrmatrixtest <- test %>%
+  select(where(is.numeric)) %>%
+  cor(use = "pairwise.complete.obs")
 
+corrmatrixtrain[lower.tri(corrmatrixtrain)] <- NA
+corrmatrixtest[lower.tri(corrmatrixtest)] <- NA
 
+corrdftrain <- as.data.frame(as.table(corrmatrixtrain))
+corrdftest <- as.data.frame(as.table(corrmatrixtest))
 
+corrtrain80 <- corrdftrain %>%
+  filter(Freq > 0.8 & Freq < 0.99999)
+corrtest80 <- corrdftest %>%
+  filter(Freq > 0.8 & Freq < 0.99999)
 
+corrtrain80 %>%
+  arrange(desc(Freq))
+corrtest80 %>%
+  arrange(desc(Freq))
+
+head(corrtrain80, 5)
+head(corrtest80, 5)
+```
+The numerical playlength variables we can see are highly correlated with one another, which is to be expected considering game design having shared underlying factors and tendencies of each player. 
 
 
 
