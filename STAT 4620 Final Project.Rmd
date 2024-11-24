@@ -1,20 +1,23 @@
 ---
 title: "STAT 4620 Project"
-author: "Dominic Blackston"
+author: "Dominic Blackston, Austin Usher, Elizabeth Yirava, Megan Zhao"
 date: "2024-11-22"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+### Read in packages
+```{r, message = FALSE}
 library(tidyverse)
 ```
 
 
-# Read in dataset
+### Read in dataset
 ```{r}
 train = read.csv('train.csv')
 test = read.csv('test.csv')
@@ -22,7 +25,13 @@ test = read.csv('test.csv')
 
 # EDA
 
-### Data Cleaning
+## Data Exploration
+
+```{r}
+dim(train)
+dim(test)
+```
+Looking at the dimensions tells us that the training dataset has 728 rows and 37 columns. The testing dataset has 484 rows and 37 columns. This dataset has a lot of parameters, suggesting a need to reduce its dimensionality.
 
 ```{r}
 train %>% 
@@ -34,37 +43,59 @@ test %>%
   summarize(across(everything(), ~ sum(is.na(.)), .names = "missing_{.col}")) 
 ```
 
+157 rows are missing Metadata.Publishers in the train dataset; 107 rows are missing Metadata.Publishers in the test dataset.  After doing research, we found that many of the null columns had publishers that were already included in the dataset (for example, Rock Band had no publisher listed but it should be EA, which is already a value for many rows in that column). After discussion, it was decided to eliminate this column due to its unreliability. All but the "AllPlayStyles" columns will be removed due to those columns having a large number of missing values. The AllPlayStyles columns will have null values filled with median values. The data appears to be accurate other than the aforementioned issues.
 
-157 rows are missing Metadata.Publishers in the train dataset; 107 rows are missing Metadata.Publishers in the test dataset.  After doing research, we found that many of the null columns had publishers that were already included in the dataset. After discussion, it was decided to eliminate this column due to its unreliability. There are also many time played columns that have missing values (0). These will be changed to median values.The summary function suggests no further changes need to be made to the data since there are no improbable outliers. The data appears to be accurate other than the aformentioned issues.
+## Data Cleaning
 
-## Check for duplicated values
+## Remove features
+
+We removed a majority of the Length columns due to many missing values. We also removed title due to it being a variable that is always distinct. We removed publisher due to the reasons listed previously.
 ```{r}
-training[!duplicated(training),]
-```
-There are no duplicate values.
-
-```{r}
-median_value_avg <- median(training_subset$Length.All.PlayStyles.Average[training_subset$Length.All.PlayStyles.Average != 0], na.rm = TRUE)
-
-training_subset$Length.All.PlayStyles.Average[training_subset$Length.All.PlayStyles.Average == 0] = median_value_avg
-
-median_value_leisure <- median(training_subset$Length.All.PlayStyles.Leisure[training_subset$Length.All.PlayStyles.Leisure != 0], na.rm = TRUE)
-
-training_subset$Length.All.PlayStyles.Leisure[training_subset$Length.All.PlayStyles.Leisure == 0] = median_value_leisure
-
-median_value_median <- median(training_subset$Length.All.PlayStyles.Median[training_subset$Length.All.PlayStyles.Median != 0], na.rm = TRUE)
-
-training_subset$Length.All.PlayStyles.Median[training_subset$Length.All.PlayStyles.Median == 0] = median_value_median
+train_subset = train[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Average', 'Length.All.PlayStyles.Leisure', 'Length.All.PlayStyles.Median')]
+test_subset = test[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Average', 'Length.All.PlayStyles.Leisure', 'Length.All.PlayStyles.Median')]
 ```
 
+### Fill in null values
 
 ```{r}
-sum(is.na(training['']))
-summary(training_subset)
-```
-The above suggests that there are no remanining null values. It also tells us that the data does not have any improbable outliers.
+#Training
+median_value_avg <- median(train_subset$Length.All.PlayStyles.Average[train_subset$Length.All.PlayStyles.Average != 0], na.rm = TRUE)
 
-## Assessing collinearity
+train_subset$Length.All.PlayStyles.Average[train_subset$Length.All.PlayStyles.Average == 0] = median_value_avg
+
+median_value_leisure <- median(train_subset$Length.All.PlayStyles.Leisure[train_subset$Length.All.PlayStyles.Leisure != 0], na.rm = TRUE)
+
+train_subset$Length.All.PlayStyles.Leisure[train_subset$Length.All.PlayStyles.Leisure == 0] = median_value_leisure
+
+median_value_median <- median(train_subset$Length.All.PlayStyles.Median[train_subset$Length.All.PlayStyles.Median != 0], na.rm = TRUE)
+
+train_subset$Length.All.PlayStyles.Median[train_subset$Length.All.PlayStyles.Median == 0] = median_value_median
+
+#Testing
+median_value_avg <- median(test_subset$Length.All.PlayStyles.Average[test_subset$Length.All.PlayStyles.Average != 0], na.rm = TRUE)
+
+test_subset$Length.All.PlayStyles.Average[test_subset$Length.All.PlayStyles.Average == 0] = median_value_avg
+
+median_value_leisure <- median(test_subset$Length.All.PlayStyles.Leisure[test_subset$Length.All.PlayStyles.Leisure != 0], na.rm = TRUE)
+
+test_subset$Length.All.PlayStyles.Leisure[test_subset$Length.All.PlayStyles.Leisure == 0] = median_value_leisure
+
+median_value_median <- median(test_subset$Length.All.PlayStyles.Median[test_subset$Length.All.PlayStyles.Median != 0], na.rm = TRUE)
+
+test_subset$Length.All.PlayStyles.Median[test_subset$Length.All.PlayStyles.Median == 0] = median_value_median
+```
+
+### Check for duplicated values
+```{r}
+train_subset = train_subset[!duplicated(train_subset),]
+test_subset = test_subset[!duplicated(test_subset),]
+dim(train_subset)
+dim(test_subset)
+```
+There are no duplicate values since the dimensions did not change.
+
+### Collinearity
+
 ```{r}
 corrmatrixtrain <- train %>%
   select(where(is.numeric)) %>%
@@ -92,14 +123,69 @@ corrtest80 %>%
 head(corrtrain80, 5)
 head(corrtest80, 5)
 ```
-The numerical playlength variables we can see are highly correlated with one another, which is to be expected considering game design having shared underlying factors and tendencies of each player. 
+The numerical Play Length variables we can see are highly correlated with one another, which is to be expected considering game design having shared underlying factors and tendencies of each player. This suggests that should be removed from out model
 
-
+### Final variable selection
 
 ```{r}
-training_subset = training[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Publishers', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Average', 'Length.All.PlayStyles.Leisure', 'Length.All.PlayStyles.Median')]
+train_subset = train_subset[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Median')]
+
+test_subset = test_subset[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Median')]
 ```
 Values used in the models before further evaluation.
+
+## Final dataset summary
+
+```{r}
+summary(train_subset)
+summary(test_subset)
+```
+DISCUSS THIS
+
+# Model Building
+
+## LASSO
+
+### Motivation
+
+### Mathematical Description
+
+### Model Assumptions
+
+### Model Building and Validation (compare testing with training)
+
+## Ridge
+
+### Motivation
+
+### Mathematical Description
+
+### Model Assumptions
+
+### Model Building and Validation (compare testing with training)
+
+## PCA
+
+### Motivation
+
+### Mathematical Description
+
+### Model Assumptions
+
+### Model Building and Validation (compare testing with training)
+
+## PLS
+
+### Motivation
+
+### Mathematical Description
+
+### Model Assumptions
+
+### Model Building and Validation (compare testing with training)
+
+
+
 
 
 
