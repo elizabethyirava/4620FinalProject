@@ -1,0 +1,47 @@
+---
+title: "STAT 4620 Project"
+author: "Dominic Blackston"
+date: "2024-11-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+training = read.csv('train.csv')
+training[!duplicated(training),]
+```
+There are no duplicate values.
+
+```{r}
+training_subset = training[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Publishers', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Average', 'Length.All.PlayStyles.Leisure', 'Length.All.PlayStyles.Median')]
+```
+Values used in the models.
+
+```{r}
+median_value_avg <- median(training_subset$Length.All.PlayStyles.Average[training_subset$Length.All.PlayStyles.Average != 0], na.rm = TRUE)
+
+training_subset$Length.All.PlayStyles.Average[training_subset$Length.All.PlayStyles.Average == 0] = median_value_avg
+
+median_value_leisure <- median(training_subset$Length.All.PlayStyles.Leisure[training_subset$Length.All.PlayStyles.Leisure != 0], na.rm = TRUE)
+
+training_subset$Length.All.PlayStyles.Leisure[training_subset$Length.All.PlayStyles.Leisure == 0] = median_value_leisure
+
+median_value_median <- median(training_subset$Length.All.PlayStyles.Median[training_subset$Length.All.PlayStyles.Median != 0], na.rm = TRUE)
+
+training_subset$Length.All.PlayStyles.Median[training_subset$Length.All.PlayStyles.Median == 0] = median_value_median
+```
+
+
+```{r}
+sum(is.na(training))
+summary(training_subset)
+```
+
+
+
+
+
+
