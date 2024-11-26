@@ -55,6 +55,19 @@ train_subset = train[c('Features.Handheld.', 'Features.Max.Players', 'Features.M
 test_subset = test[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Average', 'Length.All.PlayStyles.Leisure', 'Length.All.PlayStyles.Median')]
 ```
 
+```{r}
+train_removed <- as.data.frame(train) %>%
+   select(c(Length.Completionists.Average, Length.Completionists.Leisure, Length.Completionists.Median, Length.Completionists.Polled, Length.Completionists.Rushed, Length.Main...Extras.Average, Length.Main...Extras.Leisure, Length.Main...Extras.Median, Length.Main...Extras.Polled, Length.Main...Extras.Rushed, Length.Main.Story.Average, Length.Main.Story.Leisure, Length.Main.Story.Median, Length.Main.Story.Polled, Length.Main.Story.Rushed, Metrics.Sales))
+
+sum(train_removed$Length.Main...Extras.Polled)
+sum(train_removed$Length.Completionists.Polled)
+sum(train_removed$Length.Main.Story.Polled)
+sum(train$Length.All.PlayStyles.Polled)
+
+```
+It was found that the all play styles length variable has far more responses compared to the other types of length variables. It was decided to use this variable to retain as much information as possible. 
+
+
 ### Fill in null values
 
 ```{r}
