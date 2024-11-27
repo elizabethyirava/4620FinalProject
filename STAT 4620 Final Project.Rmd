@@ -252,14 +252,83 @@ DISCUSS THIS
 
 ### Motivation
 
+Through our exploratory data analysis (EDA), we discovered that our data set is extensive and contains many variables exhibiting high collinearity. Partial Least Squares (PLS) regression, a supervised dimensionality reduction technique, addresses this by identifying new features that are linear combinations of the original predictors. It achieves this by analyzing the correlations among variables while simultaneously maximizing the explained variance in both the predictors and the response variable. PLS is a supervised reduction technique which depends on both y and x.
+
 ### Mathematical Description
+
+Covariance Matrix Decomposition
+
+X^T = UDU^T
+U-Eigenvectors
+D-Diagonal matrix of eigenvalues
+
+Dimensionality Reduction
+
+X_m = XU_m
+X_m - reduced matric with m principal components
+
+Regression Model
+
+y = X_mB + e
 
 ### Model Assumptions
 
+PLS assumes that the relationship between the predictors and response in linear as the model finds linear combinations of predictors. The model also assumes large multicollinearity between predictors.
+
 ### Model Building and Validation (compare testing with training)
+```{r}
+sapply(train_subset, function(x) length(unique(x)))
 
+# Exclude columns with only 1 unique value
+exclude_columns = c("Features.Handheld.", "Features.Online.", 
+                     "Metadata.Licensed.", "Metadata.Sequel.", 
+                     "Release.Re.release.")
 
+# Remove from the training and test datasets
+train_subset_pls = train_subset[, !(names(train_subset) %in% exclude_columns)]
+test_subset_pls = test_subset[, !(names(train_subset) %in% exclude_columns)]
 
+# Verify by checking the column names after removal
+names(train_subset_pls)
 
+```
 
+```{r}
+library(pls)
+
+# Fit the PLS model using the training dataset with cross-validation
+pls_model = plsr(Metrics.Sales ~ Features.Max.Players + Metadata.Genres + Release.Console +
+                   Length.All.PlayStyles.Median + Metrics.Review.Score + Metrics.Used.Price +
+                   Release.Rating + Release.Year, data = train_subset_pls, validation = "CV")
+
+# View the summary of the model (including cross-validation results)
+summary(pls_model)
+
+# Evaluate the model's performance using cross-validation (RMSEP or MSEP)
+rmsep_values = RMSEP(pls_model)
+
+# Print the RMSEP values to see the RMSEP for each number of components
+print(rmsep_values)
+
+# Find the number of components with the lowest RMSEP
+best_ncomp = which.min(rmsep_values$val)  # Find the index of the minimum RMSEP
+cat("Best number of components:", best_ncomp, "\n")
+
+```
+
+### ASK QUESTION WHY PREDICTIONS NOT WORKING
+
+```{r}
+#pls_predictions <- predict(pls_model, newdata = test_subset, ncomp = 2)
+
+# Extract the actual values of Metrics.Sales from the test set
+#actual_values <- test_subset$Metrics.Sales
+
+# Calculate RMSE (Root Mean Squared Error) for the test set predictions
+#rmse <- sqrt(mean((pls_predictions - actual_values)^2))
+#print(paste("RMSE on test set:", rmse))
+
+# Plot RMSE for different numbers of components to choose the optimal number
+#plot(RMSEP(pls_model), main = "RMSE by Number of Components")
+```
 
