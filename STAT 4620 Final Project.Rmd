@@ -311,14 +311,47 @@ DISCUSS THIS
 ## Ridge
 
 ### Motivation
+As shown above, there is a large amount of colinearity between the predictors in the train dataset. Ridge regression is a dimension reduction method that addresses this problem (multicollinearity) by introducing a penalty term, which shrinks the coefficient values toward 0. This will reduce the influence of predictors, therefore reducing potential overfitting. 
 
 ### Mathematical Description
+The Ordinary Least Squares (OLS) Objective is to minimize the RSS, where RSS is:
+
+$$RSS = \sum_{i=1}^n \left( y_i  \mathbf{x}_i^\top \boldsymbol{\beta} \right)^2 $$
+
+Note:
+$( y_i )$ is the $ i $th observed response.
+ $$ \mathbf{x}_i = \begin{bmatrix} x_{i1}, x_{i2}, \dots, x_{ip} \end{bmatrix}^\top $$ is the $$ i $$-th vector of predictors.
+ $$ \boldsymbol{\beta} = \begin{bmatrix} \beta_0, \beta_1, \dots, \beta_p \end{bmatrix}^\top $$ are the regression coefficients.
+ $$ n $$ is the number of observations.
+ $$ p $$ is the number of predictors.
+
+Ridge regression adds a penalty term to shrink regression coefficients and minimize the RSS. 
+
+The Ridge formula is:
+ $$ \underset{{\beta}}{\min}  \sum_{i=1}^n \left( y_i  \mathbf{x}_i^\top \boldsymbol{\beta} \right)^2 + \lambda \sum_{j=1}^p {\beta}_j^2 $$
+
+Note:
+ $$ \sum_{j=1}^p \beta_j^2 $$ is the penalty term.
+
+
+Ridge regression can also be written mathematically in matrix form:
+
+$$\underset{\boldsymbol{\beta}}{\min} \, \|\boldsymbol{y}  \mathbf{X}\boldsymbol{\beta}\|_2^2 + \lambda ||\boldsymbol{\beta}\|_2^2 $$
+
+Note:
+ $$ \mathbf{y} $$ is the vector of responses.
+ $$ \mathbf{X} $$ is the design matrix of predictors.
+
+The ridge regression coefficients can be solved as:
+$$\boldsymbol{\hat{\beta}} = (\mathbf{X}^\top \mathbf{X} + \lambda \mathbf{I})^{1} \mathbf{X}^\top \mathbf{y}$$
+Note:
+ $$ \mathbf{I} $$ is the identity matrix.
 
 ### Model Assumptions
-#### Ridge regression assumes that there is a linear relationship between the independent and dependent variables. Also, the errors must be independent, normally, and identically distributed. There should be low measurement error for the variables used. Also, since this procedure is done to address multicollinearity, there should be correlated variables. 
+ Ridge regression assumes that there is a linear relationship between the independent and dependent variables. Also, the errors must be independent, normally, and identically distributed. There should be low measurement error for the variables used. Also, since this procedure is done to address multicollinearity, there should be correlated variables. 
 
 ### Model Building and Validation (compare testing with training)
-####Fitting a ridge regression model on the training set, with lambda chosen by cross-validation. 
+Fitting a ridge regression model on the training set, with lambda chosen by cross-validation. 
 
 ```{r}
 # choosing lambda 
