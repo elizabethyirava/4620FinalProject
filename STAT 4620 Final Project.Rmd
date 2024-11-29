@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Read in packages
 ```{r, message = FALSE}
 library(tidyverse)
+library(scales)
 ```
 
 
@@ -198,6 +199,85 @@ summary(train_subset)
 
 Sales shows a right-skewed distribution indicating few games achieve very high sales while the majority have fewer sales. Review scores also display a broad variation which could be useful in predicting sales. Features such as number of players, multiplatform, sequels, and online capabilities could also be helpful in predicting sales. Some game play styles have very large outliers which could affect prediction.
 
+### Visualizations 
+
+```{r }
+
+train_removed <- as.data.frame(train) %>%
+   select(c(Length.Completionists.Average, Length.Completionists.Leisure, Length.Completionists.Median, Length.Completionists.Polled, Length.Completionists.Rushed, Length.Main...Extras.Average, Length.Main...Extras.Leisure, Length.Main...Extras.Median, Length.Main...Extras.Polled, Length.Main...Extras.Rushed, Length.Main.Story.Average, Length.Main.Story.Leisure, Length.Main.Story.Median, Length.Main.Story.Polled, Length.Main.Story.Rushed, Metrics.Sales))
+
+
+train_viz <- as.data.frame(train) %>%
+  select(-c(Length.Completionists.Average, Length.Completionists.Leisure, Length.Completionists.Median, Length.Completionists.Polled, Length.Completionists.Rushed, Length.Main...Extras.Average, Length.Main...Extras.Leisure, Length.Main...Extras.Median, Length.Main...Extras.Polled, Length.Main...Extras.Rushed, Length.Main.Story.Average, Length.Main.Story.Leisure, Length.Main.Story.Median, Length.Main.Story.Polled, Length.Main.Story.Rushed))
+```
+
+
+```{r}
+numeric_cols <- train_viz %>% select(where(is.numeric), -c(...1,))
+
+pairs(numeric_cols)
+```
+The correlation plot shows that the length variable are all highly correlated with one another. There does not appear to be much correlation between the other variables. 
+
+```{r, echo = F, message = F, warning = F, results = 'asis'}
+# "results = 'asis'" helps to render the plots in the loop. 
+
+# get only numeric vars, remove polled because it dosen't make sense to visualize that
+numeric_cols <- train_viz %>% select(where(is.numeric), -c(...1, Length.All.PlayStyles.Polled))
+
+# Long format for numeric columns
+train_long <- pivot_longer(numeric_cols, cols = everything(), names_to = "variable", values_to = "value") 
+vars <- unique(train_long$variable)
+
+# Loop through each column
+for (i in seq_along(vars)) {
+  # data for var
+  current_data <- train_long[train_long$variable == vars[i], ]
+  
+  # boxplot
+  fig <- ggplot(current_data, aes(x = "", y = value)) +
+    geom_boxplot() +
+    labs(
+      title = paste("Boxplot of", vars[i]), # Dynamic title
+      x = " ", 
+      y = "Value"
+    ) 
+  
+  print(fig)
+}
+
+boxplot_tain <- train_viz %>% select(c(Features.Handheld., Features.Max.Players, Features.Multiplatform., Features.Online., Metadata.Genres, Metadata.Licensed., Metadata.Publishers, Metadata.Sequel., Metrics.Review.Score, Metrics.Sales, Metrics.Used.Price, Release.Console, Release.Rating, Release.Re.release., Release.Year)) %>%
+  mutate(across(everything(), as.factor)) # Apply as.factor to all selected columns
+
+
+  train_long <- pivot_longer(boxplot_tain, cols = everything(), names_to = "variable", values_to = "value") 
+  vars_boxplot <- unique(train_long$variable)
+  
+# Loop through each column- barcharts
+for (i in seq_along(vars_boxplot)) {
+  # data for var
+  current_data <- train_long[train_long$variable == vars_boxplot[i], ] %>%
+    group_by(value) %>%
+    summarise(n = n()) 
+  
+  # barchart
+  fig <- ggplot(current_data, aes(x = value, y = n)) +
+    geom_bar(stat = 'identity', position = 'dodge') +
+    labs(
+      title = paste("Boxplot of", vars_boxplot[i]), # Dynamic title
+      x = " ", 
+      y = "Value"
+    )  +
+    scale_x_discrete(labels = label_wrap(40)) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0))
+    
+  print(fig)
+}
+```
+
+The boxplots for the numeric variables in the dataset appear to contain outliers for many of the variables. Specifically, the variables length.all.playstyles rushed, average, and leisure. The response variable, sales, also appears to contain many outliers.
+
+The barcharts show the there are far more games that have a maximum of one player compared to other types. The variable review score appears to be a left- tailed normal distribution with a mean around 70. The release year for games ranges from 2004-2008, with 2007 as the most common release year. Also, the variables that can take T/F values each have only TRUE values. 
 
 ### Final variable selection
 
