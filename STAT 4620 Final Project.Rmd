@@ -315,8 +315,41 @@ DISCUSS THIS
 ### Mathematical Description
 
 ### Model Assumptions
+#### Ridge regression assumes that there is a linear relationship between the independent and dependent variables. Also, the errors must be independent, normally, and identically distributed. There should be low measurement error for the variables used. Also, since this procedure is done to address multicollinearity, there should be correlated variables. 
 
 ### Model Building and Validation (compare testing with training)
+####Fitting a ridge regression model on the training set, with lambda chosen by cross-validation. 
+
+```{r}
+# choosing lambda 
+library(glmnet)
+
+x <-as.matrix(train[, sapply(train, is.numeric)])
+
+y <- train_subset$Metrics.Sales               
+
+# try a lambda
+fit.ridge = glmnet(x,y,alpha=0,lambda=10) # try a particular lambda value and see what we get
+pred.ridge = predict(fit.ridge,newx=x)
+r_test_MSE <- mean((y-pred.ridge)^2)
+
+coef(fit.ridge)
+size <- sqrt(sum(coef(fit.ridge)[-1,1]^2))  # -1 because the intercept is not supposed to be included 
+cat("Size of Ridge regression coefficients given lambda:", size, "\n")
+```
+
+
+```{r}
+# use cross- validation to find minimizing lambda
+ridge.cv = cv.glmnet(x,y,alpha=0)
+lambda.cv = ridge.cv$lambda.min  # the minimizing lambda
+cat("The minimizing lambda:", lambda.cv, "\n")
+
+# use test data to fit model
+fit.ridge = glmnet(x,y,alpha=0,lambda=lambda.cv)
+pred.ridge = predict(fit.ridge,newx=x)
+cat("Ridge test error:", mean((y-pred.ridge)^2), "\n")
+```
 
 ## PCA
 
