@@ -298,6 +298,8 @@ DISCUSS THIS
 
 # Model Building
 
+## LASSO
+
 ### Motivation
 
 LASSO drives many coefficients that do not contribute meaningfully to the predictive power of the model towards exactly zero in high-dimensional data or data with multicollinearity in predictors. This feature selection reduces the chances of overfitting by adding a penalty term.
@@ -332,19 +334,9 @@ fit.lasso = glmnet(x,train_subset$Metrics.Sales,alpha=1)
 #Make predictions
 ncol(x2)
 pred.lasso = predict(fit.lasso,s=lambda.lasso,newx=x2)
-(mselasso <- mean((test_subset$Metrics.Sales-pred.lasso)ˆ2))
-
-#HERE: TEST AND TRAIN SUBSETS DONT HAVE THE SAME VARIABLES? SEEMS LIKE AN ISSUE
-library(dplyr)
-comparison <- tibble(
-  Variable = union(colnames(x), colnames(x2)),
-  In_df1 = Variable %in% colnames(x),
-  In_df2 = Variable %in% colnames(x2)
-)
-comparison
+(mselasso <- mean((testdata$Metrics.Sales - pred.lasso)^2))
 ```
-Using a lambda of 0.01422756 (minimized), the test error of the ridge model was [INSERT].
-
+Using a lambda of 0.01422756 (minimized), the test error of the LASSO model was 0.5350673.
 
 ## Ridge
 
