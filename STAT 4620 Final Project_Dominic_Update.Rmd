@@ -303,11 +303,41 @@ We end up with 7 variables. Upon looking at each variables minimum, median, and 
 
 ### Motivation
 
+LASSO drives many coefficients that do not contribute meaningfully to the predictive power of the model towards exactly zero in high-dimensional data or data with multicollinearity in predictors. This feature selection reduces the chances of overfitting by adding a penalty term.
+
 ### Mathematical Description
+
+The formula of LASSO is: 
+  
+  $$ \underset{{\beta}}{\min}  \sum_{i=1}^n \left( y_i  \mathbf{x}_i^\top \boldsymbol{\beta} \right)^2 + \lambda \sum_{j=1}^p |{\beta}_j|$$
+
+Where $\lambda \sum_{j=1}^p |{\beta}_j|$ is the $L_1$ penalty. 
 
 ### Model Assumptions
 
+The LASSO method assumes that the the predictor and response variables are approximately linear, and that the residuals are independent and have a constant variance across predictors (homoscedasticity). 
+
 ### Model Building and Validation (compare testing with training)
+
+```{r}
+library(glmnet)
+set.seed(222)
+
+traindata = train_subset #train_subset
+testdata = test_subset #test_subset
+
+x <- model.matrix(Metrics.Sales~., data = traindata)
+lasso.cv = cv.glmnet(x,traindata$Metrics.Sales,alpha=1)
+(lambda.lasso = lasso.cv$lambda.min)
+
+x2 <- model.matrix(Metrics.Sales~., data = testdata)
+fit.lasso = glmnet(x,train_subset$Metrics.Sales,alpha=1)
+#Make predictions
+ncol(x2)
+pred.lasso = predict(fit.lasso,s=lambda.lasso,newx=x2)
+(mselasso <- mean((testdata$Metrics.Sales - pred.lasso)^2))
+```
+Using a lambda of 0.01422756 (minimized), the test error of the LASSO model was 0.5350673.
 
 ## Ridge
 
