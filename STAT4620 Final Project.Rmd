@@ -415,8 +415,8 @@ cat("The minimizing lambda:", lambda.cv, "\n")
 
 # use test data to fit model
 fit.ridge = glmnet(x,y,alpha=0,lambda=lambda.cv)
-pred.ridge = predict(fit.ridge,newx=x)
-cat("Ridge test error:", mean((y-pred.ridge)^2), "\n")
+pred.ridge = predict(fit.ridge,newx=x2)
+cat("Ridge test error:", mean((y2-pred.ridge)^2), "\n")
 ```
 
 ## PCR
