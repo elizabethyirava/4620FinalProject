@@ -37,6 +37,9 @@ dim(test)
 Looking at the dimensions tells us that the training dataset has 728 rows and 37 columns. The testing dataset has 484 rows and 37 columns. This dataset has a lot of parameters, suggesting a need to reduce its dimensionality.
 
 ```{r}
+train$Metadata.Publishers <- na_if(train$Metadata.Publishers, "")
+test$Metadata.Publishers <- na_if(test$Metadata.Publishers, "")
+
 train %>% 
 
   summarize(across(everything(), ~ sum(is.na(.)), .names = "missing_{.col}")) 
