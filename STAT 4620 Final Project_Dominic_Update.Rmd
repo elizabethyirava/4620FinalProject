@@ -61,9 +61,13 @@ test_subset = test[c('Features.Handheld.', 'Features.Max.Players', 'Features.Mul
 train_removed <- as.data.frame(train) %>%
    select(c(Length.Completionists.Average, Length.Completionists.Leisure, Length.Completionists.Median, Length.Completionists.Polled, Length.Completionists.Rushed, Length.Main...Extras.Average, Length.Main...Extras.Leisure, Length.Main...Extras.Median, Length.Main...Extras.Polled, Length.Main...Extras.Rushed, Length.Main.Story.Average, Length.Main.Story.Leisure, Length.Main.Story.Median, Length.Main.Story.Polled, Length.Main.Story.Rushed, Metrics.Sales))
 
+cat("Main Extras Polled Variables:", "\n")
 sum(train_removed$Length.Main...Extras.Polled)
+cat("Completionists Variables:", "\n")
 sum(train_removed$Length.Completionists.Polled)
+cat("Main Story Variables:", "\n")
 sum(train_removed$Length.Main.Story.Polled)
+cat("All Play Styles Variables:", "\n")
 sum(train$Length.All.PlayStyles.Polled)
 
 ```
