@@ -1,0 +1,548 @@
+---
+title: "STAT 4620 Project"
+author: "Dominic Blackston, Austin Usher, Elizabeth Yirava, Megan Zhao"
+date: "2024-12-03"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Read in packages
+```{r, message = FALSE}
+library(tidyverse)
+library(scales)
+library(dplyr)
+library(pls)
+library(glmnet)
+```
+
+
+### Read in dataset
+```{r}
+train = read.csv('train.csv')
+test = read.csv('test.csv')
+```
+
+# EDA
+
+## Data Exploration
+
+```{r}
+dim(train)
+dim(test)
+```
+Looking at the dimensions tells us that the training dataset has 728 rows and 37 columns. The testing dataset has 484 rows and 37 columns. This dataset has a lot of parameters, suggesting a need to reduce its dimensionality.
+
+```{r}
+train$Metadata.Publishers <- na_if(train$Metadata.Publishers, "")
+test$Metadata.Publishers <- na_if(test$Metadata.Publishers, "")
+
+train %>% 
+
+  summarize(across(everything(), ~ sum(is.na(.)), .names = "missing_{.col}")) 
+
+test %>% 
+
+  summarize(across(everything(), ~ sum(is.na(.)), .names = "missing_{.col}")) 
+```
+
+157 rows are missing Metadata.Publishers in the train dataset; 107 rows are missing Metadata.Publishers in the test dataset.  After doing research, we found that many of the null columns had publishers that were already included in the dataset (for example, Rock Band had no publisher listed but it should be EA, which is already a value for many rows in that column). After discussion, it was decided to eliminate this column due to its unreliability. All length variables but the "AllPlayStyles" columns will be removed due to their large number of missing values (zeros). The AllPlayStyles columns will have null values filled with median values. The data appears to be accurate other than the aforementioned issues.
+
+## Data Cleaning
+
+## Remove features
+
+We removed a majority of the Length columns due to many missing values. We also removed title due to it being a variable that is always distinct. We removed publisher due to the reasons listed previously.
+```{r}
+train_subset = train[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Average', 'Length.All.PlayStyles.Leisure', 'Length.All.PlayStyles.Median')]
+test_subset = test[c('Features.Handheld.', 'Features.Max.Players', 'Features.Multiplatform.', 'Features.Online.', 'Metadata.Genres', 'Metadata.Licensed.', 'Metadata.Sequel.', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Console', 'Release.Rating', 'Release.Re.release.', 'Release.Year', 'Length.All.PlayStyles.Average', 'Length.All.PlayStyles.Leisure', 'Length.All.PlayStyles.Median')]
+```
+
+```{r}
+train_removed <- as.data.frame(train) %>%
+   select(c(Length.Completionists.Average, Length.Completionists.Leisure, Length.Completionists.Median, Length.Completionists.Polled, Length.Completionists.Rushed, Length.Main...Extras.Average, Length.Main...Extras.Leisure, Length.Main...Extras.Median, Length.Main...Extras.Polled, Length.Main...Extras.Rushed, Length.Main.Story.Average, Length.Main.Story.Leisure, Length.Main.Story.Median, Length.Main.Story.Polled, Length.Main.Story.Rushed, Metrics.Sales))
+
+cat("Main Extras Polled Variables:", "\n")
+sum(train_removed$Length.Main...Extras.Polled)
+cat("Completionists Variables:", "\n")
+sum(train_removed$Length.Completionists.Polled)
+cat("Main Story Variables:", "\n")
+sum(train_removed$Length.Main.Story.Polled)
+cat("All Play Styles Variables:", "\n")
+sum(train$Length.All.PlayStyles.Polled)
+
+```
+It was found that the all play styles length variables have far more responses than the other types of length variables. It was decided to use these variables to retain as much information as possible. 
+
+
+### Fill in null values
+
+```{r}
+#Training
+median_value_avg <- median(train_subset$Length.All.PlayStyles.Average[train_subset$Length.All.PlayStyles.Average != 0], na.rm = TRUE)
+
+train_subset$Length.All.PlayStyles.Average[train_subset$Length.All.PlayStyles.Average == 0] = median_value_avg
+
+median_value_leisure <- median(train_subset$Length.All.PlayStyles.Leisure[train_subset$Length.All.PlayStyles.Leisure != 0], na.rm = TRUE)
+
+train_subset$Length.All.PlayStyles.Leisure[train_subset$Length.All.PlayStyles.Leisure == 0] = median_value_leisure
+
+median_value_median <- median(train_subset$Length.All.PlayStyles.Median[train_subset$Length.All.PlayStyles.Median != 0], na.rm = TRUE)
+
+train_subset$Length.All.PlayStyles.Median[train_subset$Length.All.PlayStyles.Median == 0] = median_value_median
+
+#Testing
+median_value_avg <- median(test_subset$Length.All.PlayStyles.Average[test_subset$Length.All.PlayStyles.Average != 0], na.rm = TRUE)
+
+test_subset$Length.All.PlayStyles.Average[test_subset$Length.All.PlayStyles.Average == 0] = median_value_avg
+
+median_value_leisure <- median(test_subset$Length.All.PlayStyles.Leisure[test_subset$Length.All.PlayStyles.Leisure != 0], na.rm = TRUE)
+
+test_subset$Length.All.PlayStyles.Leisure[test_subset$Length.All.PlayStyles.Leisure == 0] = median_value_leisure
+
+median_value_median <- median(test_subset$Length.All.PlayStyles.Median[test_subset$Length.All.PlayStyles.Median != 0], na.rm = TRUE)
+
+test_subset$Length.All.PlayStyles.Median[test_subset$Length.All.PlayStyles.Median == 0] = median_value_median
+```
+
+### Check for duplicated values
+```{r}
+train_subset = train_subset[!duplicated(train_subset),]
+test_subset = test_subset[!duplicated(test_subset),]
+dim(train_subset)
+dim(test_subset)
+```
+There are no duplicate values since the dimensions did not change.
+
+### Collinearity
+
+```{r}
+corrmatrixtrain <- train %>%
+  select(where(is.numeric)) %>%
+  cor(use = "pairwise.complete.obs")
+corrmatrixtest <- test %>%
+  select(where(is.numeric)) %>%
+  cor(use = "pairwise.complete.obs")
+
+corrmatrixtrain[lower.tri(corrmatrixtrain)] <- NA
+corrmatrixtest[lower.tri(corrmatrixtest)] <- NA
+
+corrdftrain <- as.data.frame(as.table(corrmatrixtrain))
+corrdftest <- as.data.frame(as.table(corrmatrixtest))
+
+corrtrain80 <- corrdftrain %>%
+  filter(Freq > 0.8 & Freq < 0.99999)
+corrtest80 <- corrdftest %>%
+  filter(Freq > 0.8 & Freq < 0.99999)
+
+corrtrain80 %>%
+  arrange(desc(Freq))
+corrtest80 %>%
+  arrange(desc(Freq))
+
+head(corrtrain80, 5)
+head(corrtest80, 5)
+```
+The numerical Play Length variables are highly correlated with one another, which is to be expected considering game design has shared underlying factors given tendencies of each player. This suggests that some of these parameters should be removed from the model.
+
+### EDA Insights for Modeling
+
+```{r}
+# Correlation heatmap for numeric variables
+library(ggcorrplot)
+
+numeric_data <- train_subset[sapply(train_subset, is.numeric)]
+cor_matrix <- cor(numeric_data, use = "complete.obs")
+
+cor_matrix = round(cor_matrix,1)
+
+# Plot heatmap with larger size and improved readability
+ggcorrplot(cor_matrix, 
+           lab = TRUE,        
+           lab_size = 2,      
+           tl.cex = 5,       
+           title = "Correlation Heatmap", 
+           ggtheme = ggplot2::theme_minimal()) +
+  theme(
+    plot.title = element_text(size = 10, face = "bold"),
+    axis.text = element_text(size = 4)                  
+  )
+
+# Extract correlations of 'Metrics.Sales' with all other numeric variables
+sales_correlations <- cor_matrix["Metrics.Sales", ]
+```
+
+Because many variables have very small correlation with the Sales variable, both Lasso and Ridge would be useful in diminishing the impact of non important variables. Lasso would work best to select the needed features and to simplify the model as some coefficients are set to 0. Ridge would be useful if all variables should be kept but some should be weighted much less.
+
+### Types of Variables
+
+```{r}
+# Check the structure of the data
+str(train_subset)
+
+# Numeric, Factor, and Character Variable Count Without %>%
+numeric_vars <- sum(sapply(train_subset, is.numeric))
+factor_vars <- sum(sapply(train_subset, is.factor))
+character_vars <- sum(sapply(train_subset, is.character))
+
+# Create a summary table for variable types
+var_summary <- data.frame(
+  numeric_vars = numeric_vars,
+  factor_vars = factor_vars,
+  character_vars = character_vars
+)
+
+# Print the summary table
+print(var_summary)
+
+# Summary for each variable in the dataset
+summary(train_subset)
+```
+
+Sales shows a right-skewed distribution indicating few games achieve very high sales while the majority have fewer sales. Review scores also display a broad variation which could be useful in predicting sales. Features such as number of players, multiplatform, sequels, and online capabilities could also be helpful in predicting sales. Some game play styles have very large outliers which could affect prediction.
+
+### Visualizations 
+
+```{r }
+train_removed <- as.data.frame(train) %>%
+   select(c(Length.Completionists.Average, Length.Completionists.Leisure, Length.Completionists.Median, Length.Completionists.Polled, Length.Completionists.Rushed, Length.Main...Extras.Average, Length.Main...Extras.Leisure, Length.Main...Extras.Median, Length.Main...Extras.Polled, Length.Main...Extras.Rushed, Length.Main.Story.Average, Length.Main.Story.Leisure, Length.Main.Story.Median, Length.Main.Story.Polled, Length.Main.Story.Rushed, Metrics.Sales))
+
+
+train_viz <- as.data.frame(train) %>%
+  select(-c(Length.Completionists.Average, Length.Completionists.Leisure, Length.Completionists.Median, Length.Completionists.Polled, Length.Completionists.Rushed, Length.Main...Extras.Average, Length.Main...Extras.Leisure, Length.Main...Extras.Median, Length.Main...Extras.Polled, Length.Main...Extras.Rushed, Length.Main.Story.Average, Length.Main.Story.Leisure, Length.Main.Story.Median, Length.Main.Story.Polled, Length.Main.Story.Rushed))
+```
+
+
+```{r}
+numeric_cols <- train_viz %>% select(where(is.numeric))
+
+pairs(numeric_cols)
+```
+
+The correlation plot shows that the length variable are all highly correlated with one another. There does not appear to be much correlation between the other variables. 
+
+Boxplots and barcharts of the variables can be examined to explore the data further and check for its distribution and significant outliers.
+
+```{r, echo = F, message = F, warning = F, results = 'asis'}
+# "results = 'asis'" helps to render the plots in the loop. 
+
+# get only numeric vars, remove polled because it dosen't make sense to visualize that
+numeric_cols <- train_viz %>% select(where(is.numeric))
+
+# Long format for numeric columns
+train_long <- pivot_longer(numeric_cols, cols = everything(), names_to = "variable", values_to = "value") 
+vars <- unique(train_long$variable)
+
+# Loop through each column
+for (i in seq_along(vars)) {
+  # data for var
+  current_data <- train_long[train_long$variable == vars[i], ]
+  
+  # boxplot
+  fig <- ggplot(current_data, aes(x = "", y = value)) +
+    geom_boxplot() +
+    labs(
+      title = paste("Boxplot of", vars[i]), # Dynamic title
+      x = " ", 
+      y = "Value"
+    ) 
+  
+  print(fig)
+}
+
+boxplot_tain <- train_viz %>% select(c(Features.Handheld., Features.Max.Players, Features.Multiplatform., Features.Online., Metadata.Genres, Metadata.Licensed., Metadata.Publishers, Metadata.Sequel., Metrics.Review.Score, Metrics.Sales, Metrics.Used.Price, Release.Console, Release.Rating, Release.Re.release., Release.Year)) %>%
+  mutate(across(everything(), as.factor)) # Apply as.factor to all selected columns
+
+
+  train_long <- pivot_longer(boxplot_tain, cols = everything(), names_to = "variable", values_to = "value") 
+  vars_boxplot <- unique(train_long$variable)
+  
+# Loop through each column- barcharts
+for (i in seq_along(vars_boxplot)) {
+  # data for var
+  current_data <- train_long[train_long$variable == vars_boxplot[i], ] %>%
+    group_by(value) %>%
+    summarise(n = n()) 
+  
+  # barchart
+  fig <- ggplot(current_data, aes(x = value, y = n)) +
+    geom_bar(stat = 'identity', position = 'dodge') +
+    labs(
+      title = paste("Boxplot of", vars_boxplot[i]), # Dynamic title
+      x = " ", 
+      y = "Value"
+    )  +
+    scale_x_discrete(labels = label_wrap(40)) +
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0))
+    
+  print(fig)
+}
+```
+
+The boxplots for the numeric variables in the dataset appear to contain many outliers. Specifically, the variables length.all.playstyles rushed, average, and leisure. The response variable, sales, also appears to contain many outliers.
+
+The barcharts show the there are far more games that have a maximum of one player compared to other types. The variable review score appears to be a left-tailed normal distribution with a mean around 70. The release year for games ranges from 2004-2008, with 2007 as the most common release year. 
+
+Another very important piece of information these visualizations show is that the variables that can take T/F values each have only TRUE values. 
+
+### Final variable selection
+
+```{r}
+train_subset = test_subset[c('Metadata.Genres', 'Release.Console','Features.Max.Players', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Rating', 'Release.Year', 'Length.All.PlayStyles.Median')]
+
+test_subset = test_subset[c('Metadata.Genres', 'Release.Console','Features.Max.Players', 'Metrics.Review.Score', 'Metrics.Sales','Metrics.Used.Price', 'Release.Rating', 'Release.Year', 'Length.All.PlayStyles.Median')]
+```
+Values used in the models before further evaluation. Many variables (including Multiplatform, Online, Licensed, Sequel, Re.release, and Handheld) were removed due to always having the same (True) value.
+
+## Final dataset summary
+
+```{r}
+summary(train_subset)
+summary(test_subset)
+```
+We end up with 7 variables. Upon looking at each variables minimum, median, and maximum, every variable appears to have reasonable data associated with it (no improbable outliers). This suggests that our data cleaning and transformation phase is complete and we can begin to model the data.
+
+# Model Building
+
+## LASSO
+
+### Motivation
+
+LASSO drives many coefficients that do not contribute meaningfully to the predictive power of the model towards exactly zero in high-dimensional data or data with multicollinearity in predictors. This feature selection reduces the chances of overfitting by adding a penalty term.
+
+### Mathematical Description
+
+The formula of LASSO is: 
+  
+  $$ \underset{{\beta}}{\min}  \sum_{i=1}^n \left( y_i  \mathbf{x}_i^\top \boldsymbol{\beta} \right)^2 + \lambda \sum_{j=1}^p |{\beta}_j|$$
+
+Where $\lambda \sum_{j=1}^p |{\beta}_j|$ is the $L_1$ penalty. 
+
+### Model Assumptions
+
+The LASSO method assumes that the the predictor and response variables are approximately linear, and that the residuals are independent and have a constant variance across predictors (homoscedasticity). 
+
+### Model Building and Validation
+
+```{r}
+set.seed(222)
+
+traindata = train_subset #train_subset
+testdata = test_subset #test_subset
+
+x <- model.matrix(Metrics.Sales~., data = traindata)
+lasso.cv = cv.glmnet(x,traindata$Metrics.Sales,alpha=1)
+(lambda.lasso = lasso.cv$lambda.min)
+
+x2 <- model.matrix(Metrics.Sales~., data = testdata)
+fit.lasso = glmnet(x,train_subset$Metrics.Sales,alpha=1)
+#Make predictions
+ncol(x2)
+pred.lasso = predict(fit.lasso,s=lambda.lasso,newx=x2)
+(mselasso <- mean((testdata$Metrics.Sales - pred.lasso)^2))
+```
+Using a lambda of 0.02817311 (minimized), the test error of the LASSO model was 0.5350673.
+
+## Ridge
+
+### Motivation
+As shown above, there is a large amount of colinearity between the predictors in the train dataset. Ridge regression is a dimension reduction method that addresses this problem (multicollinearity) by introducing a penalty term, which shrinks the coefficient values toward 0. This will reduce the influence of predictors, therefore reducing potential overfitting. 
+
+### Mathematical Description
+The Ordinary Least Squares (OLS) Objective is to minimize the RSS, where RSS is:
+
+$$RSS = \sum_{i=1}^n \left( y_i  \mathbf{x}_i^\top \boldsymbol{\beta} \right)^2 $$
+
+Note:
+$( y_i )$ is the $ i $th observed response.
+ $$ \mathbf{x}_i = \begin{bmatrix} x_{i1}, x_{i2}, \dots, x_{ip} \end{bmatrix}^\top $$ is the i-th vector of predictors.
+ $$ \boldsymbol{\beta} = \begin{bmatrix} \beta_0, \beta_1, \dots, \beta_p \end{bmatrix}^\top $$ are the regression coefficients.
+ $$\text{n is the number of observations}$$  
+ $$\text{p is the number of predictors}$$  
+
+Ridge regression adds a penalty term to shrink regression coefficients and minimize the RSS. 
+
+The Ridge formula is:
+ $$ \underset{{\beta}}{\min}  \sum_{i=1}^n \left( y_i  \mathbf{x}_i^\top \boldsymbol{\beta} \right)^2 + \lambda \sum_{j=1}^p {\beta}_j^2 $$
+
+Note:
+ $$ \sum_{j=1}^p \beta_j^2 \text{ is the penalty term}$$
+
+
+Ridge regression can also be written mathematically in matrix form:
+
+$$\underset{\boldsymbol{\beta}}{\min} \, \|\boldsymbol{y}  \mathbf{X}\boldsymbol{\beta}\|_2^2 + \lambda ||\boldsymbol{\beta}\|_2^2 $$
+
+Note:
+ $$ \mathbf{y}\text{ is the vector of responses}$$
+ $$ \mathbf{X} \text{ is the design matrix of predictors}$$
+
+The ridge regression coefficients can be solved as:
+$$\boldsymbol{\hat{\beta}} = (\mathbf{X}^\top \mathbf{X} + \lambda \mathbf{I})^{1} \mathbf{X}^\top \mathbf{y}$$
+Note:
+ $$ \mathbf{I} \text{ is the identity matrix}$$
+
+### Model Assumptions
+ Ridge regression assumes that there is a linear relationship between the independent and dependent variables. Also, the errors must be independently, normally, and identically distributed. There should be low measurement error for the variables used. Also, since this procedure is done to address multicollinearity, there should be correlated variables. 
+
+### Model Building and Validation
+Fitting a ridge regression model on the training set, with lambda chosen by cross-validation. 
+
+```{r}
+x <- as.matrix(train_subset[, !names(train_subset) %in% "Metrics.Sales"])
+x2 <- as.matrix(test_subset[, !names(test_subset) %in% "Metrics.Sales"])
+y <- train_subset$Metrics.Sales               
+y2 <- test_subset$Metrics.Sales
+
+# try a lambda
+fit.ridge = glmnet(x,y,alpha=0,lambda=10) # try a particular lambda value and see what we get
+pred.ridge = predict(fit.ridge,newx=x2)
+r_test_MSE <- mean((y2-pred.ridge)^2)
+
+coef(fit.ridge)
+size <- sqrt(sum(coef(fit.ridge)[-1,1]^2))  # -1 because the intercept is not supposed to be included 
+cat("Size of Ridge regression coefficients given lambda:", size, "\n")
+```
+
+
+```{r}
+# use cross- validation to find minimizing lambda
+ridge.cv = cv.glmnet(x,y,alpha=0)
+lambda.cv = ridge.cv$lambda.min  # the minimizing lambda
+cat("The minimizing lambda:", lambda.cv, "\n")
+
+# use test data to fit model
+fit.ridge = glmnet(x,y,alpha=0,lambda=lambda.cv)
+pred.ridge = predict(fit.ridge,newx=x)
+cat("Ridge test error:", mean((y-pred.ridge)^2), "\n")
+```
+
+## PCR
+
+### Motivation
+
+PCR is good for this dataset due to the number of predictors. PCR will effectively reduce the dimensionality of the data. This will allow the model to be trained well and perform its best.
+
+### Mathematical Description
+
+$$y_i = \beta_0 + \sum_{k=1}^m\beta_kx_{ik}+\epsilon_i$$  
+Where $$\text{Where } \beta_k=\sum_{j=1}^m\theta_ju_{jk}$$  
+$\beta\text{ values represent the predictors chosen using PCR}$
+
+In matrix notation:  
+
+$\hat\beta = U\hat\theta$  
+$Var(\hat\beta) = UVar(\hat\theta)U^T = \sigma^2U(Z^TZ)^{-1}U^T$  
+Z are linear combinations of our predictors.  
+
+### Model Assumptions
+
+PCR assumes that m << p. This works in our model since our goal is to reduce the dimensionality of the data (and we have a pretty high p). We are also assuming that reducing dimensionality will increase model performance.
+
+### Model Building and Validation
+
+PCR will only work with ordered data, so convert categorical or binary variables to numeric variables when possible. I chose to drop the Metadata.Genres and Release.Console columns because neither has a natural ordering. The Rating column was also modified to be 0 for E, 1 for T, and 2 for M. These steps will ensure proper performance of PCR.
+
+
+```{r}
+train_subset <- subset(train_subset, select = -c(Metadata.Genres, Release.Console))
+
+train_subset <- train_subset %>%
+  mutate(Release.Rating = recode(Release.Rating, "E" = 0, "T" = 1, "M" = 2))
+
+test_subset <- subset(test_subset, select = -c(Metadata.Genres, Release.Console))
+
+test_subset <- test_subset %>%
+  mutate(Release.Rating = recode(Release.Rating, "E" = 0, "T" = 1, "M" = 2))
+```
+
+
+```{r}
+X <- test_subset %>% select(-Metrics.Sales)
+fit.pcr = pcr(Metrics.Sales~.,data=train_subset,scale=TRUE,validation="CV")
+pcr.pred=predict(fit.pcr, newdata= X)
+print(paste0("Test Error: ", mean((test_subset$Metrics.Sales-as.vector(pcr.pred))^2)))
+```
+We get a test error of 0.6 which is a very good result, suggesting that the model fit the data well.
+
+## PLS
+
+### Motivation
+
+Through our exploratory data analysis (EDA), we discovered that our data set is extensive and contains many variables exhibiting high collinearity. Partial Least Squares (PLS) regression, a supervised dimensionality reduction technique, addresses this by identifying new features that are linear combinations of the original predictors. It achieves this by analyzing the correlations among variables while simultaneously maximizing the explained variance in both the predictors and the response variable. PLS is a supervised reduction technique which depends on both y and x.
+
+### Mathematical Description  
+
+Covariance Matrix Decomposition  
+
+$X^T = UDU^T$  
+U-Eigenvectors  
+D-Diagonal matrix of eigenvalues  
+  
+Dimensionality Reduction  
+  
+$X_m = XU_m$  
+$X_m\text{ - reduced matrix with m principal components}$  
+
+Regression Model  
+
+$y = X_mB + e$  
+
+### Model Assumptions
+
+PLS assumes that the relationship between the predictors and response is linear since the model finds linear combinations of predictors. The model also assumes high amounts of multicollinearity between predictors.
+
+### Model Building and Validation
+
+```{r}
+# Fit the PLS model using the training dataset with cross-validation
+pls_model = plsr(Metrics.Sales ~ Features.Max.Players +
+                   Length.All.PlayStyles.Median + Metrics.Review.Score + Metrics.Used.Price +
+                   Release.Rating + Release.Year, data = train_subset, validation = "CV")
+
+# View the summary of the model (including cross-validation results)
+summary(pls_model)
+
+# Evaluate the model's performance using cross-validation (RMSEP or MSEP)
+rmsep_values = RMSEP(pls_model)
+
+# Print the RMSEP values to see the RMSEP for each number of components
+print(rmsep_values)
+
+# Find the number of components with the lowest RMSEP
+best_ncomp = which.min(rmsep_values$val)
+cat("Best number of components:", best_ncomp, "\n")
+
+```
+
+```{r}
+pls_predictions <- predict(pls_model, newdata = test_subset, ncomp = 2)
+
+# Extract the actual values of Metrics.Sales from the test set
+actual_values <- test_subset$Metrics.Sales
+
+# Calculate RMSE (Root Mean Squared Error) for the test set predictions
+rmse <- sqrt(mean((pls_predictions - actual_values)^2))
+print(paste("RMSE on test set:", rmse))
+
+# Plot RMSE for different numbers of components to choose the optimal number
+plot(RMSEP(pls_model), main = "RMSE by Number of Components")
+```
+
+The model's test error of 0.76 indicates poor performance on the test data, suggesting that PLS may not be suitable for this dataset. This implies that the variables in the dataset are likely not highly correlated, making the assumption underlying PLS inappropriate. Instead of combining features, the dataset's variables should be analyzed individually to better capture their distinct contributions using Ridge regression.
+
+# Results
+
+The model with the best MSE was LASSO with an error of 0.5350673 This outcome seems appropriate given that LASSO models perform well with data that has high collinearity. This model also allows parameters that are not useful to be eliminated by setting their weights to 0.
+
+```{r}
+coef(lasso.cv, s = "lambda.min")
+```
+Looking at the coefficients of values for LASSO, we see that some of our parameters have been eliminated. Others are considered useful such as Used Price with a coefficient of 0.05 and Review Score with a coefficient of 0.02.This suggests that review score and used price are useful in predicting sales of a game. This makes sense since games that are better quality will generally both sell for higher prices and sell more copies (due to supply and demand). Whether the genre of a game is racing is also useful in predicting the game's sales.
+
+In conclusion, the LASSO model is the best option for predicting sales.
+
