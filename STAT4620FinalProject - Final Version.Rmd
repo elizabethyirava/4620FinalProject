@@ -542,7 +542,7 @@ The model with the best MSE was LASSO with an error of 0.5350673 This outcome se
 ```{r}
 coef(lasso.cv, s = "lambda.min")
 ```
-Looking at the coefficients of values for LASSO, we see that some of our parameters have been eliminated. Others are considered useful such as Used Price with a coefficient of 0.05 and Review Score with a coefficient of 0.02.This suggests that review score and used price are useful in predicting sales of a game. This makes sense since games that are better quality will generally both sell for higher prices and sell more copies (due to supply and demand). Whether the genre of a game is racing is also useful in predicting the game's sales.
+Looking at the coefficients of values for LASSO, we see that some of our parameters have been eliminated (notably, the variable for playlength was was dropped). Others are considered useful such as Used Price with a coefficient of 0.05 and Review Score with a coefficient of 0.02. This suggests that review score and used price are useful in predicting sales of a game. This makes sense since games that are better quality will generally both sell for higher prices and sell more copies (due to supply and demand). Whether the genre of a game is racing is also useful in predicting the game's sales. The model kept genre, console, and rating as factor variabels and maximum number of players, review score,  release year, and price as continuous variables. 
 
 In conclusion, the LASSO model is the best option for predicting sales.
 
