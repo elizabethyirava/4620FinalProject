@@ -29,6 +29,12 @@ test = read.csv('test.csv')
 
 # EDA
 
+The data consists of various metrics associated with video games. There are both numeric variables (including Sales, Used Price, Review Score, etc.) and categorical variables (including Publisher, Genre, Console, etc.). We decided to use sales as our response variable due to its potential implications in business settings.
+
+```{r}
+head(train)
+```
+
 ## Data Exploration
 
 ```{r}
